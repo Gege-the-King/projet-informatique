@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+@theme {
+  --color-haiti-blue: #00209F;
+  --color-haiti-red: #D21034;
+}

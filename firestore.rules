@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string
+    //   - email: string (required, email format)
+    //   - role: string (required, enum: citizen, business, dgi_agent, admin)
+    //   - taxId: string
+    //   - phoneNumber: string
+    //   - address: string
+    //   - createdAt: timestamp
+    //
+    // Collection: declarations
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required, matches auth.uid)
+    //   - taxType: string (required)
+    //   - period: string (required)
+    //   - amountDeclared: number (required)
+    //   - status: string (required, enum: pending, validated, paid, rejected)
+    //   - submissionDate: timestamp
+    //
+    // Collection: payments
+    // Document ID: auto-generated
+    // Fields:
+    //   - declarationId: string (required)
+    //   - userId: string (required, matches auth.uid)
+    //   - amount: number (required)
+    //   - method: string (required)
+    //   - status: string (required)
+    //   - paymentDate: timestamp
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'dgi_agent' ||
+         request.auth.token.email == "josephgege008@gmail.com");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string && data.uid.size() < 128 &&
+             data.email is string && data.email.size() < 256 &&
+             data.role in ['citizen', 'business', 'dgi_agent', 'admin'] &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('taxId' in data) || (data.taxId is string && data.taxId.size() < 20));
+    }
+
+    function isValidDeclaration(data) {
+      return data.keys().hasAll(['userId', 'taxType', 'period', 'amountDeclared', 'status']) &&
+             data.userId == request.auth.uid &&
+             data.amountDeclared is number &&
+             data.amountDeclared >= 0 &&
+             data.period is string && data.period.size() < 20 &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() < 1000));
+    }
+
+    function isValidPayment(data) {
+      return data.keys().hasAll(['declarationId', 'userId', 'amount', 'method', 'status']) &&
+             data.userId == request.auth.uid &&
+             data.amount is number &&
+             data.amount > 0;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (request.auth.uid == userId || isAdmin());
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
+    }
+
+    match /declarations/{declarationId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidDeclaration(request.resource.data);
+      allow update: if isAdmin(); // Only agents can update status
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidPayment(request.resource.data);
+    }
+
+    match /tax_types/{taxCode} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+  }
+}

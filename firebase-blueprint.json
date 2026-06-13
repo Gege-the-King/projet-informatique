@@ -1,0 +1,84 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the e-Fiscalité platform (Citizen, Business, or Agent).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["citizen", "business", "dgi_agent", "admin"] },
+        "taxId": { "type": "string", "description": "NIF or Matricule Fiscal" },
+        "phoneNumber": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Declaration": {
+      "title": "Declaration",
+      "description": "A tax declaration submitted by a user.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "taxType": { "type": "string", "enum": ["patente", "impot_revenu", "tva", "taxe_locative"] },
+        "period": { "type": "string", "description": "Fiscal year or month" },
+        "amountDeclared": { "type": "number" },
+        "calculatedTax": { "type": "number" },
+        "penalties": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "validated", "paid", "rejected"] },
+        "submissionDate": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["userId", "taxType", "period", "amountDeclared", "status"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "A payment transaction for a tax declaration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "declarationId": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "method": { "type": "string", "enum": ["mobile_money", "bank_transfer", "card"] },
+        "transactionRef": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "paymentDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["declarationId", "userId", "amount", "method", "status"]
+    },
+    "TaxType": {
+      "title": "TaxType",
+      "description": "Definition of a tax category.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "label": { "type": "string" },
+        "rate": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["code", "label"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Collection of user profiles."
+    },
+    "declarations": {
+      "schema": "Declaration",
+      "description": "Collection of tax declarations."
+    },
+    "payments": {
+      "schema": "Payment",
+      "description": "Collection of payment records."
+    },
+    "tax_types": {
+      "schema": "TaxType",
+      "description": "Static collection of tax definitions."
+    }
+  }
+}
